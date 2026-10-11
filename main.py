@@ -30,19 +30,19 @@ async def on_message(message):
     if message.content.startswith('ش '):
         search = message.content[2:].strip()
         
-        try:
-            member = message.guild.get_member(message.author.id) or await message.guild.fetch_member(message.author.id)
-            if not member.voice or not member.voice.channel:
-                await message.channel.send("يا غالي، ادخل روم صوتي عشان أجيك ونطرب مع بعض!")
-                return
-            user_channel = member.voice.channel
-        except Exception:
-            await message.channel.send("ما قدرت أعرف وين أنت قاعد، تأكد من الصلاحيات!")
+        # نبحث عن مكانك في جميع الرومات الصوتية بالسيرفر مباشرة
+        user_channel = None
+        for channel in message.guild.voice_channels:
+            if message.author in channel.members:
+                user_channel = channel
+                break
+
+        if not user_channel:
+            await message.channel.send("يا غالي، ادخل أي روم صوتي عشان أجيك ونطرب مع بعض!")
             return
 
         vc = message.guild.voice_client
         
-        # إذا البوت متصل بس بروم ثاني، ينقل معك تلقائياً لرومك الجديد
         if vc and vc.is_connected():
             if vc.channel != user_channel:
                 await vc.move_to(user_channel)
@@ -73,7 +73,6 @@ async def on_message(message):
         await message.channel.send(f'🎶 أبشر، جيت معك روم **{user_channel.name}** وشغلت: **{title}**')
         return
 
-    # أمر الخروج لو حبيت تطلعه يدوياً
     if message.content == 'ط':
         if message.guild.voice_client:
             await message.guild.voice_client.disconnect()
