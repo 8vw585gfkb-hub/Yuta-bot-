@@ -46,4 +46,4 @@ async def stop(ctx):
         await ctx.send('🛑 تم الخروج.')
 
 # حط التوكن حقك هنا مكان الجملة بين القوسين
-bot.run('MTU10DYwMzQ2NDk2Njl3OTlwOQ.G1Zgr9.PQKbUXWovpPIZ1DPa4C8uS28_bGe_fLF0mlХs0')
+bot.run(os.getenv('DISCORD_TOKEN'))
