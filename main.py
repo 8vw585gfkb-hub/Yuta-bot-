@@ -20,17 +20,18 @@ FFMPEG_OPTS = {
 
 @bot.event
 async def on_ready():
-    print(f'البوت {bot.user.name} جاهز!')
+    print(f'البوت {bot.user.name} جاهز وشغال تمام!')
 
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
     
+    # أمر التشغيل المباشر
     if message.content.startswith('ش '):
         search = message.content[2:].strip()
         
-        # نبحث عن مكانك في جميع الرومات الصوتية بالسيرفر مباشرة
+        # البحث عن العضو في الرومات الصوتية بالسيرفر
         user_channel = None
         for channel in message.guild.voice_channels:
             if message.author in channel.members:
@@ -38,20 +39,28 @@ async def on_message(message):
                 break
 
         if not user_channel:
+            try:
+                member = message.guild.get_member(message.author.id) or await message.guild.fetch_member(message.author.id)
+                if member.voice and member.voice.channel:
+                    user_channel = member.voice.channel
+            except Exception:
+                pass
+
+        if not user_channel:
             await message.channel.send("يا غالي، ادخل أي روم صوتي عشان أجيك ونطرب مع بعض!")
             return
 
         vc = message.guild.voice_client
-        
-        if vc and vc.is_connected():
-            if vc.channel != user_channel:
-                await vc.move_to(user_channel)
-        else:
-            try:
+
+        try:
+            if vc and vc.is_connected():
+                if vc.channel != user_channel:
+                    await vc.move_to(user_channel)
+            else:
                 vc = await user_channel.connect()
-            except Exception:
-                await message.channel.send("ما قدرت أدخل الروم الصوتي!")
-                return
+        except Exception as e:
+            await message.channel.send("ما قدرت أدخل الروم الصوتي! تأكد من صلاحيات البوت.")
+            return
 
         async with message.channel.typing():
             with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
@@ -62,7 +71,7 @@ async def on_message(message):
                     url = info.get('url')
                     title = info.get('title', 'مقطع صوتي')
                 except Exception:
-                    await message.channel.send("ما قدرت أجيب الصوت يا غالي!")
+                    await message.channel.send("ما قدرت أجيب الصوت من اليوتيوب يا غالي!")
                     return
 
         if vc.is_playing():
@@ -70,9 +79,10 @@ async def on_message(message):
 
         ffmpeg_path = imageio_ffmpeg.get_ffmpeg_executable()
         vc.play(discord.FFmpegPCMAudio(executable=ffmpeg_path, source=url, **FFMPEG_OPTS))
-        await message.channel.send(f'🎶 أبشر، جيت معك روم **{user_channel.name}** وشغلت: **{title}**')
+        await message.channel.send(f'🎶 أبشر، جيت معك في روم **{user_channel.name}** وشغلت: **{title}**')
         return
 
+    # أمر الخروج
     if message.content == 'ط':
         if message.guild.voice_client:
             await message.guild.voice_client.disconnect()
