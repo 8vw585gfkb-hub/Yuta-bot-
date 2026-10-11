@@ -2,6 +2,7 @@ import os
 import discord
 from discord.ext import commands
 import yt_dlp
+import imageio_ffmpeg
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -17,33 +18,36 @@ FFMPEG_OPTS = {
 async def on_ready():
     print(f'البوت {bot.user.name} جاهز!')
 
-# أمر التشغيل المختصر: !ش
 @bot.command(name='ش')
 async def play(ctx, *, search):
     if not ctx.author.voice:
         return await ctx.send("ادخل روم صوتي أولاً!")
-
+    
     channel = ctx.author.voice.channel
     vc = ctx.voice_client or await channel.connect()
 
     async with ctx.typing():
         with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
             try:
-                info = ydl.extract_info(f"ytsearch:{search}", download=False)['entries'][0]
-                url, title = info['url'], info['title']
+                info = ydl.extract_info(f"ytsearch:{search}", download=False)
+                if 'entries' in info and info['entries']:
+                    info = info['entries'][0]
+                url = info.get('url')
+                title = info.get('title', 'مقطع صوتي')
             except Exception:
                 return await ctx.send("ما قدرت أجيب الصوت!")
 
-            vc.play(discord.FFmpegPCMAudio(url, **FFMPEG_OPTS))
-    
-    await ctx.send(f'🎵 شغّلت: **{title}**')
+    if vc.is_playing():
+        vc.stop()
 
-# أمر الخروج المختصر: !ط
+    ffmpeg_path = imageio_ffmpeg.get_ffmpeg_executable()
+    vc.play(discord.FFmpegPCMAudio(executable=ffmpeg_path, source=url, **FFMPEG_OPTS))
+    await ctx.send(f'🎶 شغلت: **{title}**')
+
 @bot.command(name='ط')
 async def stop(ctx):
     if ctx.voice_client:
         await ctx.voice_client.disconnect()
-        await ctx.send('🛑 تم الخروج.')
+        await ctx.send('🔴 تم الخروج.')
 
-# حط التوكن حقك هنا مكان الجملة بين القوسين
 bot.run(os.getenv('DISCORD_TOKEN'))
