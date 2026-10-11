@@ -6,7 +6,10 @@ import imageio_ffmpeg
 
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix="!", intents=intents)
+intents.members = True
+intents.voice_states = True
+
+bot = commands.Bot(command_prefix="", intents=intents)
 
 YDL_OPTS = {'format': 'bestaudio', 'noplaylist': True}
 FFMPEG_OPTS = {
