@@ -8,6 +8,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 intents.voice_states = True
+intents.guilds = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -17,48 +18,40 @@ FFMPEG_OPTS = {
     'options': '-vn'
 }
 
-current_vc = None
-
 @bot.event
 async def on_ready():
-    global current_vc
     print(f'البوت {bot.user.name} جاهز!')
-    
-    # أول ما يشتغل البوت، يدخل أول روم صوتي يلاقيه ويجلس فيه للأبد
-    for guild in bot.guilds:
-        for channel in guild.voice_channels:
-            try:
-                if not guild.voice_client:
-                    current_vc = await channel.connect()
-                    print(f'دخلت روم الصوت الجلسة الدائمة: {channel.name}')
-                    break
-            except Exception as e:
-                print(f'خطأ في دخول الروم: {e}')
-        if current_vc:
-            break
 
 @bot.event
 async def on_message(message):
-    global current_vc
     if message.author.bot:
         return
     
-    # أمر التشغيل المباشر من الشات
     if message.content.startswith('ش '):
         search = message.content[2:].strip()
         
-        # لو لأي سبب طلع من الروم، يرجع يدخل تلقائياً
-        if not current_vc or not current_vc.is_connected():
-            for channel in message.guild.voice_channels:
-                try:
-                    current_vc = await channel.connect()
-                    break
-                except Exception:
-                    pass
-
-        if not current_vc:
-            await message.channel.send("يا غالي ما لقيت روم صوتي أدخله!")
+        try:
+            member = message.guild.get_member(message.author.id) or await message.guild.fetch_member(message.author.id)
+            if not member.voice or not member.voice.channel:
+                await message.channel.send("يا غالي، ادخل روم صوتي عشان أجيك ونطرب مع بعض!")
+                return
+            user_channel = member.voice.channel
+        except Exception:
+            await message.channel.send("ما قدرت أعرف وين أنت قاعد، تأكد من الصلاحيات!")
             return
+
+        vc = message.guild.voice_client
+        
+        # إذا البوت متصل بس بروم ثاني، ينقل معك تلقائياً لرومك الجديد
+        if vc and vc.is_connected():
+            if vc.channel != user_channel:
+                await vc.move_to(user_channel)
+        else:
+            try:
+                vc = await user_channel.connect()
+            except Exception:
+                await message.channel.send("ما قدرت أدخل الروم الصوتي!")
+                return
 
         async with message.channel.typing():
             with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
@@ -72,12 +65,19 @@ async def on_message(message):
                     await message.channel.send("ما قدرت أجيب الصوت يا غالي!")
                     return
 
-        if current_vc.is_playing():
-            current_vc.stop()
+        if vc.is_playing():
+            vc.stop()
 
         ffmpeg_path = imageio_ffmpeg.get_ffmpeg_executable()
-        current_vc.play(discord.FFmpegPCMAudio(executable=ffmpeg_path, source=url, **FFMPEG_OPTS))
-        await message.channel.send(f'🎶 أبشر، شغلت لك: **{title}**')
+        vc.play(discord.FFmpegPCMAudio(executable=ffmpeg_path, source=url, **FFMPEG_OPTS))
+        await message.channel.send(f'🎶 أبشر، جيت معك روم **{user_channel.name}** وشغلت: **{title}**')
+        return
+
+    # أمر الخروج لو حبيت تطلعه يدوياً
+    if message.content == 'ط':
+        if message.guild.voice_client:
+            await message.guild.voice_client.disconnect()
+            await message.channel.send('🔴 أبشر، طلعت من الروم.')
         return
 
     await bot.process_commands(message)
