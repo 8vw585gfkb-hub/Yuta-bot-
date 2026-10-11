@@ -23,10 +23,16 @@ async def on_ready():
 
 @bot.command(name='ش')
 async def play(ctx, *, search):
-    if not ctx.author.voice:
-        return await ctx.send("ادخل روم صوتي أولاً!")
+    # سحب معلومات العضو مباشرة من السيرفر لضمان معرفة مكان وجوده في الروم الصوتي
+    try:
+        member = ctx.guild.get_member(ctx.author.id) or await ctx.guild.fetch_member(ctx.author.id)
+    except Exception:
+        member = ctx.author
+
+    if not hasattr(member, 'voice') or not member.voice or not member.voice.channel:
+        return await ctx.send("يا طويل العمر، ادخل روم صوتي أولاً عشان أقدر أدخل معك!")
     
-    channel = ctx.author.voice.channel
+    channel = member.voice.channel
     vc = ctx.voice_client or await channel.connect()
 
     async with ctx.typing():
@@ -38,19 +44,19 @@ async def play(ctx, *, search):
                 url = info.get('url')
                 title = info.get('title', 'مقطع صوتي')
             except Exception:
-                return await ctx.send("ما قدرت أجيب الصوت!")
+                return await ctx.send("ما قدرت أجيب الصوت يا غالي!")
 
     if vc.is_playing():
         vc.stop()
 
     ffmpeg_path = imageio_ffmpeg.get_ffmpeg_executable()
     vc.play(discord.FFmpegPCMAudio(executable=ffmpeg_path, source=url, **FFMPEG_OPTS))
-    await ctx.send(f'🎶 شغلت: **{title}**')
+    await ctx.send(f'🎶 أبشر، شغلت لك: **{title}**')
 
 @bot.command(name='ط')
 async def stop(ctx):
     if ctx.voice_client:
         await ctx.voice_client.disconnect()
-        await ctx.send('🔴 تم الخروج.')
+        await ctx.send('🔴 أبشر، طلعت من الروم.')
 
 bot.run(os.getenv('DISCORD_TOKEN'))
