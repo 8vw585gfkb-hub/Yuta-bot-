@@ -27,11 +27,9 @@ async def on_message(message):
     if message.author.bot:
         return
     
-    # أمر التشغيل المباشر
     if message.content.startswith('ش '):
         search = message.content[2:].strip()
         
-        # البحث عن العضو في الرومات الصوتية بالسيرفر
         user_channel = None
         for channel in message.guild.voice_channels:
             if message.author in channel.members:
@@ -59,7 +57,7 @@ async def on_message(message):
             else:
                 vc = await user_channel.connect()
         except Exception as e:
-            await message.channel.send("ما قدرت أدخل الروم الصوتي! تأكد من صلاحيات البوت.")
+            await message.channel.send(f"❌ خطأ الاتصال الصوتي بالتفصيل: {e}")
             return
 
         async with message.channel.typing():
@@ -82,7 +80,6 @@ async def on_message(message):
         await message.channel.send(f'🎶 أبشر، جيت معك في روم **{user_channel.name}** وشغلت: **{title}**')
         return
 
-    # أمر الخروج
     if message.content == 'ط':
         if message.guild.voice_client:
             await message.guild.voice_client.disconnect()
