@@ -17,46 +17,69 @@ FFMPEG_OPTS = {
     'options': '-vn'
 }
 
+current_vc = None
+
 @bot.event
 async def on_ready():
+    global current_vc
     print(f'البوت {bot.user.name} جاهز!')
-
-@bot.command(name='ش')
-async def play(ctx, *, search):
-    # سحب معلومات العضو مباشرة من السيرفر لضمان معرفة مكان وجوده في الروم الصوتي
-    try:
-        member = ctx.guild.get_member(ctx.author.id) or await ctx.guild.fetch_member(ctx.author.id)
-    except Exception:
-        member = ctx.author
-
-    if not hasattr(member, 'voice') or not member.voice or not member.voice.channel:
-        return await ctx.send("يا طويل العمر، ادخل روم صوتي أولاً عشان أقدر أدخل معك!")
     
-    channel = member.voice.channel
-    vc = ctx.voice_client or await channel.connect()
-
-    async with ctx.typing():
-        with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
+    # أول ما يشتغل البوت، يدخل أول روم صوتي يلاقيه ويجلس فيه للأبد
+    for guild in bot.guilds:
+        for channel in guild.voice_channels:
             try:
-                info = ydl.extract_info(f"ytsearch:{search}", download=False)
-                if 'entries' in info and info['entries']:
-                    info = info['entries'][0]
-                url = info.get('url')
-                title = info.get('title', 'مقطع صوتي')
-            except Exception:
-                return await ctx.send("ما قدرت أجيب الصوت يا غالي!")
+                if not guild.voice_client:
+                    current_vc = await channel.connect()
+                    print(f'دخلت روم الصوت الجلسة الدائمة: {channel.name}')
+                    break
+            except Exception as e:
+                print(f'خطأ في دخول الروم: {e}')
+        if current_vc:
+            break
 
-    if vc.is_playing():
-        vc.stop()
+@bot.event
+async def on_message(message):
+    global current_vc
+    if message.author.bot:
+        return
+    
+    # أمر التشغيل المباشر من الشات
+    if message.content.startswith('ش '):
+        search = message.content[2:].strip()
+        
+        # لو لأي سبب طلع من الروم، يرجع يدخل تلقائياً
+        if not current_vc or not current_vc.is_connected():
+            for channel in message.guild.voice_channels:
+                try:
+                    current_vc = await channel.connect()
+                    break
+                except Exception:
+                    pass
 
-    ffmpeg_path = imageio_ffmpeg.get_ffmpeg_executable()
-    vc.play(discord.FFmpegPCMAudio(executable=ffmpeg_path, source=url, **FFMPEG_OPTS))
-    await ctx.send(f'🎶 أبشر، شغلت لك: **{title}**')
+        if not current_vc:
+            await message.channel.send("يا غالي ما لقيت روم صوتي أدخله!")
+            return
 
-@bot.command(name='ط')
-async def stop(ctx):
-    if ctx.voice_client:
-        await ctx.voice_client.disconnect()
-        await ctx.send('🔴 أبشر، طلعت من الروم.')
+        async with message.channel.typing():
+            with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
+                try:
+                    info = ydl.extract_info(f"ytsearch:{search}", download=False)
+                    if 'entries' in info and info['entries']:
+                        info = info['entries'][0]
+                    url = info.get('url')
+                    title = info.get('title', 'مقطع صوتي')
+                except Exception:
+                    await message.channel.send("ما قدرت أجيب الصوت يا غالي!")
+                    return
+
+        if current_vc.is_playing():
+            current_vc.stop()
+
+        ffmpeg_path = imageio_ffmpeg.get_ffmpeg_executable()
+        current_vc.play(discord.FFmpegPCMAudio(executable=ffmpeg_path, source=url, **FFMPEG_OPTS))
+        await message.channel.send(f'🎶 أبشر، شغلت لك: **{title}**')
+        return
+
+    await bot.process_commands(message)
 
 bot.run(os.getenv('DISCORD_TOKEN'))
